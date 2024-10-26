@@ -1,133 +1,198 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class Player : MonoBehaviour
 {
-    private RoomManager roomManager;
-    private Room currentRoom;
-    
-    public float moveSpeed = 5f;
-    private bool collisionEnabled = true;
-    private Rigidbody2D rb;
-    private BoxCollider2D playerCollider;
+    [Header("Movement")]
+    [SerializeField] private float _speed = 3.5f;
+    [SerializeField] private float _bashInitialSpeed = 20f;
+    [SerializeField] private float _bashDuration = 0.2f;
+[SerializeField] private float _bashDecayRate = 15f;
+    [SerializeField] private float _bashCooldown = 1f;
 
-    // Player statistics
-    public float maxHealth = 100f;
-    public float currentHealth;
-    public float attackSpeed = 1f;
-    public float damage = 10f;
+    [Header("Input Keys")]
+    [SerializeField] private KeyCode _moveUpKey = KeyCode.W;
+    [SerializeField] private KeyCode _moveDownKey = KeyCode.S;
+    [SerializeField] private KeyCode _moveLeftKey = KeyCode.A;
+    [SerializeField] private KeyCode _moveRightKey = KeyCode.D;
 
-    void Start()
+    [Header("Health")]
+    [SerializeField] private int _maxHealth = 100;
+    private int _currentHealth;
+
+    [Header("References")]
+    [SerializeField] private HeldItems _heldItems;
+    private RoomManager _roomManager;
+    private Room _currentRoom;
+    private Rigidbody2D _rb;
+    private Collider2D _collider;
+
+    private bool _isDashing;
+    private float _dashTimeLeft;
+    private float _bashCooldownTimeLeft;
+    private Vector2 _dashDirection;
+    private Vector2 _movement;
+    private Vector2 _preBashVelocity;
+    public float _currentSpeed;
+
+    private void Start()
     {
-        rb = GetComponent<Rigidbody2D>();
-        if (rb == null)
-        {
-            rb = gameObject.AddComponent<Rigidbody2D>();
-        }
-        rb.gravityScale = 0f; // Disable gravity for top-down movement
-        rb.freezeRotation = true; // Prevent rotation
-        rb.drag = 5f; // Add some drag to prevent sliding
-        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
-
-        playerCollider = GetComponent<BoxCollider2D>();
-        if (playerCollider == null)
-        {
-            playerCollider = gameObject.AddComponent<BoxCollider2D>();
-        }
-
-        // Initialize current health
-        currentHealth = maxHealth;
+        _rb = GetComponent<Rigidbody2D>();
+        _collider = GetComponent<Collider2D>();
+        _roomManager = FindObjectOfType<RoomManager>();
+        _heldItems = GetComponent<HeldItems>();
+        _currentHealth = _maxHealth;
     }
 
-    public void SetRoomManager(RoomManager manager)
+    private void Update()
     {
-        roomManager = manager;
-    }
+        // Get input for movement using Unity's Input system
+        float horizontalInput = Input.GetAxisRaw("Horizontal");
+        float verticalInput = Input.GetAxisRaw("Vertical");
 
-    void Update()
-    {
-        // Toggle collision with 'C' key
-        if (Input.GetKeyDown(KeyCode.C))
+        // Create a movement vector
+        _movement = new Vector2(horizontalInput, verticalInput);
+
+        // Normalize the movement vector to ensure consistent speed in all directions
+        _movement = _movement.normalized;
+
+        if (Input.GetKeyDown(KeyCode.E))
         {
-            ToggleCollision();
-        }
-        float horizontalInput = Input.GetAxis("Horizontal");
-        float verticalInput = Input.GetAxis("Vertical");
-        //update the players position using default Unity inputs
-        transform.Translate(Vector3.right * horizontalInput * moveSpeed * Time.deltaTime);
-        transform.Translate(Vector3.up * verticalInput * moveSpeed * Time.deltaTime);
-    }
-
-    void FixedUpdate()
-    {
-        CheckCurrentRoom();
-    }
-
-    void CheckCurrentRoom()
-    {
-        if (roomManager != null)
-        {
-            Room newRoom = roomManager.GetRoomAtPosition(transform.position);
-            if (newRoom != null && newRoom != currentRoom)
+            Debug.Log("E key pressed");
+            if (CanBash())
             {
-                currentRoom = newRoom;
-                OnRoomEnter(currentRoom);
+                Debug.Log("Bashing.......");
+                StartBash();
+            }
+            else
+            {
+                Debug.Log("Cannot bash right now");
             }
         }
+
+        UpdateCooldowns();
+        // Debug log to check input and movement
+        Debug.Log($"Input: ({horizontalInput}, {verticalInput}), Movement: {_movement}, Position: {transform.position}");
+
+        if (_isDashing && _rb.velocity.magnitude <= _speed)
+        {
+            StopBash();
+        }
     }
 
-    void OnRoomEnter(Room room)
+    private void FixedUpdate()
     {
-        Debug.Log($"Entered room: {room.name}");
-        // Add any other logic you want to execute when entering a new room
+        if (_isDashing)
+        {
+            float elapsedTime = _bashDuration - _dashTimeLeft;
+            _currentSpeed = CalculateDecayingSpeed(elapsedTime);
+            _rb.velocity = _dashDirection * _currentSpeed;
+
+            _dashTimeLeft -= Time.fixedDeltaTime;
+            if (_dashTimeLeft <= 0 || _currentSpeed <= _speed)
+            {
+                StopBash();
+            }
+        }
+        else
+        {
+            MovePlayer();
+        }
+    }
+private float CalculateDecayingSpeed(float elapsedTime)
+{
+    float t = elapsedTime / _bashDuration;
+    float decayedSpeed = Mathf.Lerp(_bashInitialSpeed, _speed, t);
+    return Mathf.Max(decayedSpeed, _speed);
+}
+private float CalculateExponentialDecay(float initialValue, float decayRate, float time)
+{
+    return initialValue * Mathf.Exp(-decayRate * time);
+}
+
+
+    private void MovePlayer()
+    {
+        _currentSpeed = _speed;
+        _rb.velocity = _movement * _currentSpeed;
     }
 
-    void ToggleCollision()
+    public Vector2 GetCurrentVelocity()
     {
-        collisionEnabled = !collisionEnabled;
-        rb.simulated = collisionEnabled;
-        playerCollider.enabled = collisionEnabled;
-        Debug.Log(collisionEnabled ? "Collision enabled" : "Collision disabled");
+        return _rb.velocity;
     }
 
-    // Function to update player statistics
-    public void UpdateStats(float healthChange = 0f, float speedChange = 0f, float damageChange = 0f, float attackSpeedChange = 0f)
+    private bool CanBash()
     {
-        currentHealth = Mathf.Clamp(currentHealth + healthChange, 0f, maxHealth);
-        moveSpeed += speedChange;
-        damage += damageChange;
-        attackSpeed += attackSpeedChange;
-
-        Debug.Log($"Updated Player Stats: Health: {currentHealth}/{maxHealth}, Speed: {moveSpeed}, " +
-                  $"Damage: {damage}, Attack Speed: {attackSpeed}");
+        return !_isDashing && _bashCooldownTimeLeft <= 0;
     }
 
-    // Function to deal damage to the player
-    public void TakeDamage(float damageAmount)
+    private void StartBash()
     {
-        currentHealth -= damageAmount;
-        currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
+        Debug.Log("BASH STARTED!");
+        _isDashing = true;
+        _dashTimeLeft = _bashDuration;
+        _dashDirection = _movement != Vector2.zero ? _movement : transform.right;
+        _preBashVelocity = _rb.velocity;
+        _rb.velocity = _dashDirection * _bashInitialSpeed;
+        _bashCooldownTimeLeft = _bashCooldown;
+    }
 
-        Debug.Log($"Player took {damageAmount} damage. Current Health: {currentHealth}/{maxHealth}");
+    private void StopBash()
+    {
+        _isDashing = false;
+    }
 
-        if (currentHealth <= 0)
+    private void UpdateCooldowns()
+    {
+        if (_bashCooldownTimeLeft > 0)
+        {
+            _bashCooldownTimeLeft -= Time.deltaTime;
+        }
+    }
+
+    public void TakeDamage(int damage)
+    {
+        _currentHealth -= damage;
+        _heldItems.TriggerItemEffects(ItemEffectTrigger.OnDamageTaken);
+        if (_currentHealth <= 0)
         {
             Die();
         }
     }
 
-    // Function to heal the player
-    public void Heal(float healAmount)
-    {
-        currentHealth += healAmount;
-        currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
-
-        Debug.Log($"Player healed for {healAmount}. Current Health: {currentHealth}/{maxHealth}");
-    }
-
-    // Function called when the player dies
     private void Die()
     {
+        // Handle player death
         Debug.Log("Player has died!");
-        // Add any death logic here (e.g., respawn, game over screen, etc.)
+        // You might want to reload the level, show a game over screen, etc.
+    }
+
+    public void Heal(int amount)
+    {
+        _currentHealth = Mathf.Min(_currentHealth + amount, _maxHealth);
+    }
+
+    public void PickupItem(ItemData item)
+    {
+        _heldItems.AddItem(item);
+        _heldItems.TriggerItemEffects(ItemEffectTrigger.OnItemPickup);
+    }
+
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        // Handle collisions with items, enemies, etc.
+    }
+
+    public void SetRoomManager(RoomManager roomManager)
+    {
+        _roomManager = roomManager;
+    }
+
+    public void UseActiveItem()
+    {
+        // Implement the logic for using the active item
+        // This method should be called when the player wants to use their active item
     }
 }

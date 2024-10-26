@@ -131,7 +131,7 @@ Rigidbody2D:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4076424435443340384}
   m_BodyType: 0
-  m_Simulated: 0
+  m_Simulated: 1
   m_UseFullKinematicContacts: 0
   m_UseAutoMass: 0
   m_Mass: 1
@@ -146,8 +146,8 @@ Rigidbody2D:
     serializedVersion: 2
     m_Bits: 0
   m_Interpolate: 0
-  m_SleepingMode: 1
-  m_CollisionDetection: 0
+  m_SleepingMode: 0
+  m_CollisionDetection: 1
   m_Constraints: 0
 --- !u!114 &7456775771366241612
 MonoBehaviour:
@@ -161,4 +161,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e66a778092cc32a47ad70e71439be75b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 5
+  _speed: 3.5
+  _bashSpeed: 50
+  _bashDuration: 0.2
+  _bashCooldown: 1
+  _bashInitialSpeed: 50
+  _bashSlowdownRate: 10
+  _moveUpKey: 119
+  _moveDownKey: 115
+  _moveLeftKey: 97
+  _moveRightKey: 100
+  _maxHealth: 100
+  _heldItems: {fileID: 0}

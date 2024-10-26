@@ -57,7 +57,7 @@ public class RoomManager : MonoBehaviour
             SpawnPlayer();
         }
 
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (Input.GetKeyDown(KeyCode.R))
         {
             RegenerateRooms();
         }
