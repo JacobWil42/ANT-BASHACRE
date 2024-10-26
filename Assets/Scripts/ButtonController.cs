@@ -5,9 +5,20 @@ using UnityEngine.SceneManagement;
 
 public class ButtonController : MonoBehaviour
 {
-    [SerializeField] private string newGameLevel = "Floor1";
+    private AudioSource audioSource;
+    [SerializeField] private string playerSelectScreen = "PlayerSelect";
     public void StartButton()
     {
-        SceneManager.LoadScene(newGameLevel);
+        SceneManager.LoadScene(playerSelectScreen);
+    }
+    void Start()
+    {
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            Debug.LogError("AudioSource component not found on this GameObject!");
+            return;
+        }
+        audioSource.Play(); // Play the sound
     }
 }
